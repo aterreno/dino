@@ -6,6 +6,7 @@ gem "sinatra"
 group :development do
   gem "sinatra-reloader"
   gem "shotgun"
+  gem "heroku"
 end
 
 group :test do 
