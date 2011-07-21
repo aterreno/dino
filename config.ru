@@ -9,6 +9,7 @@ if ENV['RACK_ENV'] == 'production'
   $stdout.sync = true
   $stderr.sync = true
 end
+
 require File.join(File.dirname(__FILE__), 'app')
 
 run Sinatra::Application
