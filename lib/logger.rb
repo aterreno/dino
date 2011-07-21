@@ -2,34 +2,15 @@ DINO_LOG_LEVEL = ENV['DINO_LOG_LEVEL'] unless defined?(DINO_LOG_LEVEL)
 
 module Dino
   
-  ##
-  # Returns the dino logger
-  #
-  # ==== Examples
-  #
-  #   logger.debug "foo"
-  #   logger.warn "bar"
-  #
   def self.logger
     Dino::Logger.setup! if Thread.current[:dino_logger].nil?
     Thread.current[:dino_logger]
   end
 
-  ##
-  # Set the dino logger
-  #
   def self.logger=(value)
     Thread.current[:dino_logger] = value
   end
 
-  ##
-  # Extensions to the built in Ruby logger.
-  #
-  # ==== Examples
-  #
-  #   logger.debug "foo"
-  #   logger.warn  "bar"
-  #
   class Logger
 
     attr_accessor :level
@@ -39,15 +20,6 @@ module Dino
     attr_reader   :init_args
     attr_accessor :log_static
 
-    ##
-    # Ruby (standard) logger levels:
-    #
-    # :fatal:: An unhandleable error that results in a program crash
-    # :error:: A handleable error condition
-    # :warn:: A warning
-    # :info:: generic (useful) information about system operation
-    # :debug:: low-level information for developers
-    #
     Levels = {
       :fatal =>  7,
       :error =>  6,
@@ -59,35 +31,6 @@ module Dino
 
     @@mutex = {}
 
-    ##
-    # Configuration for a given environment, possible options are:
-    #
-    # :log_level:: Once of [:fatal, :error, :warn, :info, :debug]
-    # :stream:: Once of [:to_file, :null, :stdout, :stderr] our your custom stream
-    # :log_level::
-    #   The log level from, e.g. :fatal or :info. Defaults to :warn in the
-    #   production environment and :debug otherwise.
-    # :auto_flush::
-    #   Whether the log should automatically flush after new messages are
-    #   added. Defaults to true.
-    # :format_datetime:: Format of datetime. Defaults to: "%d/%b/%Y %H:%M:%S"
-    # :format_message:: Format of message. Defaults to: ""%s - - [%s] \"%s\"""
-    # :log_static:: Whether or not to show log messages for static files. Defaults to: false
-    #
-    # ==== Examples
-    #
-    #   Dino::Logger::Config[:development] = { :log_level => :debug, :stream => :to_file }
-    #   # or you can edit our defaults
-    #   Dino::Logger::Config[:development][:log_level] = :error
-    #   # or you can use your stream
-    #   Dino::Logger::Config[:development][:stream] = StringIO.new
-    #
-    # Defaults are:
-    #
-    #   :production  => { :log_level => :warn, :stream => :to_file }
-    #   :development => { :log_level => :debug, :stream => :stdout }
-    #   :test        => { :log_level => :fatal, :stream => :null }
-    #
     Config = {
       :production  => { :log_level => :warn,  :stream => :to_file },
       :development => { :log_level => :debug, :stream => :stdout },
@@ -125,9 +68,6 @@ module Dino
       :devel => [MAGENTA]
     } unless defined?(ColoredLevels)
 
-    ##
-    # Setup a new logger
-    #
     def self.setup!
       config_level = (DINO_LOG_LEVEL || :test).to_sym # need this for DINO_LOG_LEVEL
       config = Config[config_level]
@@ -144,22 +84,6 @@ module Dino
       Thread.current[:dino_logger] = Dino::Logger.new(config.merge(:stream => stream))
     end
 
-    ##
-    # To initialize the logger you create a new object, proxies to set_log.
-    #
-    # ==== Options
-    #
-    # :stream:: Either an IO object or a name of a logfile. Defaults to $stdout
-    # :log_level::
-    #   The log level from, e.g. :fatal or :info. Defaults to :debug in the
-    #   production environment and :debug otherwise.
-    # :auto_flush::
-    #   Whether the log should automatically flush after new messages are
-    #   added. Defaults to true.
-    # :format_datetime:: Format of datetime. Defaults to: "%d/%b/%Y %H:%M:%S"
-    # :format_message:: Format of message. Defaults to: ""%s - - [%s] \"%s\"""
-    # :log_static:: Whether or not to show log messages for static files. Defaults to: false
-    #
     def initialize(options={})
       @buffer            = []
       @auto_flush        = options.has_key?(:auto_flush) ? options[:auto_flush] : true
@@ -172,53 +96,34 @@ module Dino
       @log_static        = options.has_key?(:log_static) ? options[:log_static] : false
     end
 
-    ##
-    # Colorize our level
-    #
     def colored_level(level)
       style = ColoredLevels[level.to_s.downcase.to_sym].join("")
       "#{style}#{level.to_s.upcase.rjust(7)}#{CLEAR}"
     end
 
-    ##
-    # Set a color for our string. Color can be a symbol/string
-    #
     def set_color(string, color, bold=false)
       color = self.class.const_get(color.to_s.upcase) if color.is_a?(Symbol)
       bold  = bold ? BOLD : ""
       "#{bold}#{color}#{string}#{CLEAR}"
     end
 
-    ##
-    # Flush the entire buffer to the log object.
-    #
-    def flush
+    def flush      
       return unless @buffer.size > 0
       @mutex.synchronize do
         @log.write(@buffer.slice!(0..-1).join(''))
       end
     end
 
-    ##
-    # Close and remove the current log object.
-    #
     def close
       flush
       @log.close if @log.respond_to?(:close) && !@log.tty?
       @log = nil
     end
 
-    ##
-    # Appends a message to the log. The methods yield to an optional block and
-    # the output of this block will be appended to the message.
-    #
     def push(message = nil, level = nil)
       self << @format_message % [colored_level(level), set_color(Time.now.strftime(@format_datetime), :yellow), message.to_s.strip]
     end
 
-    ##
-    # Directly append message to the log.
-    #
     def <<(message = nil)
       message << "\n" unless message[-1] == ?\n
       @buffer << message
@@ -227,9 +132,6 @@ module Dino
     end
     alias :write :<<
 
-    ##
-    # Generate the logging methods for Dino.logger for each log level.
-    #
     Levels.each_pair do |name, number|
       class_eval <<-LEVELMETHODS, __FILE__, __LINE__
 
@@ -334,10 +236,8 @@ module Dino
   end
 end
 
-module Kernel #:nodoc:
-  ##
-  # Define a logger available every where in our app
-  #
+module Kernel
+
   def logger
     Dino.logger
   end
